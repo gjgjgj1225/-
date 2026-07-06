@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Рацион — меню, которое думает за тебя</title>
+<!-- ========== Иконки для домашнего экрана ========== -->
+<link rel="icon" type="image/png" sizes="192x192" href="afr.png">
+<link rel="apple-touch-icon" href="afr.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- ============================================ -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -309,764 +316,790 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 <script>
-/* ==================== CONFIG ==================== */
-const YANDEX_GPT_CONFIG = {
-  proxyUrl: 'https://functions.yandexcloud.net/d4eh0s3c5h9r1a0ikfnk'
-};
+  // ========== ДИНАМИЧЕСКИЙ МАНИФЕСТ ДЛЯ PWA ==========
+  (function(){
+    const manifest = {
+      name: "Рацион",
+      short_name: "Рацион",
+      description: "Персональное меню от нейросети",
+      start_url: location.href,
+      display: "standalone",
+      background_color: "#FAF6EC",
+      theme_color: "#6C8459",
+      icons: [
+        {
+          src: "afr.png",
+          sizes: "192x192",
+          type: "image/png"
+        }
+      ]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = url;
+    document.head.appendChild(link);
+  })();
 
-const MEAL_LABELS = { breakfast:'Завтрак', lunch:'Обед', dinner:'Ужин', snack:'Перекус' };
-const DIFF_LABELS = { easy:'начинающий', medium:'средний', hard:'продвинутый' };
-const RESTRICTION_OPTIONS = [
-  { id:'vegetarian', label:'Вегетарианство' },
-  { id:'vegan', label:'Веганство' },
-  { id:'lactose', label:'Без лактозы' },
-  { id:'gluten', label:'Без глютена' },
-  { id:'diabetic', label:'Диабет' },
-  { id:'nuts', label:'Аллергия на орехи' },
-];
-const EQUIP_OPTIONS = ['Духовка','Микроволновка','Мультиварка','Пароварка','Аэрогриль','Блендер'];
+  /* ==================== CONFIG ==================== */
+  const YANDEX_GPT_CONFIG = {
+    proxyUrl: 'https://functions.yandexcloud.net/d4eh0s3c5h9r1a0ikfnk'
+  };
 
-/* Fallback local recipes if AI unavailable */
-const LOCAL_RECIPES = {
-  breakfast: [
-    { name:'Овсянка с ягодами и мёдом', emoji:'🥣', kcal:320, protein:12, fat:8, carbs:52, time:10,
-      ingredients:[{name:'Овсяные хлопья',amount:60,unit:'г'},{name:'Молоко',amount:200,unit:'мл'},{name:'Ягоды замороженные',amount:80,unit:'г'},{name:'Мёд',amount:15,unit:'г'}],
-      steps:['Довести молоко до кипения','Всыпать овсяные хлопья, варить 5 минут','Добавить ягоды и мёд перед подачей'] },
-    { name:'Творог с бананом и орехами', emoji:'🍌', kcal:290, protein:22, fat:10, carbs:30, time:5,
-      ingredients:[{name:'Творог 5%',amount:150,unit:'г'},{name:'Банан',amount:1,unit:'шт'},{name:'Грецкий орех',amount:20,unit:'г'}],
-      steps:['Нарезать банан','Смешать творог с бананом','Посыпать измельчёнными орехами'] },
-  ],
-  lunch: [
-    { name:'Гречка с курицей и овощами', emoji:'🍗', kcal:480, protein:38, fat:14, carbs:52, time:35,
-      ingredients:[{name:'Гречка',amount:80,unit:'г'},{name:'Куриное филе',amount:150,unit:'г'},{name:'Морковь',amount:1,unit:'шт'},{name:'Лук',amount:1,unit:'шт'}],
-      steps:['Отварить гречку','Обжарить лук и морковь','Добавить нарезанное филе, тушить 15 минут','Смешать с гречкой'] },
-  ],
-  dinner: [
-    { name:'Запечённая рыба с овощами', emoji:'🐟', kcal:390, protein:34, fat:16, carbs:22, time:30,
-      ingredients:[{name:'Филе трески',amount:200,unit:'г'},{name:'Брокколи',amount:150,unit:'г'},{name:'Оливковое масло',amount:10,unit:'мл'}],
-      steps:['Разогреть духовку до 200°C','Выложить рыбу и брокколи на противень, сбрызнуть маслом','Запекать 20-25 минут'] },
-  ],
-  snack: [
-    { name:'Яблоко и горсть миндаля', emoji:'🍎', kcal:180, protein:5, fat:11, carbs:18, time:1,
-      ingredients:[{name:'Яблоко',amount:1,unit:'шт'},{name:'Миндаль',amount:20,unit:'г'}],
-      steps:['Готово к употреблению'] },
-  ]
-};
+  const MEAL_LABELS = { breakfast:'Завтрак', lunch:'Обед', dinner:'Ужин', snack:'Перекус' };
+  const DIFF_LABELS = { easy:'начинающий', medium:'средний', hard:'продвинутый' };
+  const RESTRICTION_OPTIONS = [
+    { id:'vegetarian', label:'Вегетарианство' },
+    { id:'vegan', label:'Веганство' },
+    { id:'lactose', label:'Без лактозы' },
+    { id:'gluten', label:'Без глютена' },
+    { id:'diabetic', label:'Диабет' },
+    { id:'nuts', label:'Аллергия на орехи' },
+  ];
+  const EQUIP_OPTIONS = ['Духовка','Микроволновка','Мультиварка','Пароварка','Аэрогриль','Блендер'];
 
-/* ==================== HELPERS ==================== */
-function $(id){ return document.getElementById(id); }
-function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden')); $(id).classList.remove('hidden'); }
-function todayStr(d=new Date()){ return d.toISOString().slice(0,10); }
-function addDays(dateStr, n){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return todayStr(d); }
-function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
-function hash(str){ return CryptoJS.SHA256(str).toString(); }
-function uid(){ return Math.random().toString(36).slice(2,10); }
+  /* Fallback local recipes if AI unavailable */
+  const LOCAL_RECIPES = {
+    breakfast: [
+      { name:'Овсянка с ягодами и мёдом', emoji:'🥣', kcal:320, protein:12, fat:8, carbs:52, time:10,
+        ingredients:[{name:'Овсяные хлопья',amount:60,unit:'г'},{name:'Молоко',amount:200,unit:'мл'},{name:'Ягоды замороженные',amount:80,unit:'г'},{name:'Мёд',amount:15,unit:'г'}],
+        steps:['Довести молоко до кипения','Всыпать овсяные хлопья, варить 5 минут','Добавить ягоды и мёд перед подачей'] },
+      { name:'Творог с бананом и орехами', emoji:'🍌', kcal:290, protein:22, fat:10, carbs:30, time:5,
+        ingredients:[{name:'Творог 5%',amount:150,unit:'г'},{name:'Банан',amount:1,unit:'шт'},{name:'Грецкий орех',amount:20,unit:'г'}],
+        steps:['Нарезать банан','Смешать творог с бананом','Посыпать измельчёнными орехами'] },
+    ],
+    lunch: [
+      { name:'Гречка с курицей и овощами', emoji:'🍗', kcal:480, protein:38, fat:14, carbs:52, time:35,
+        ingredients:[{name:'Гречка',amount:80,unit:'г'},{name:'Куриное филе',amount:150,unit:'г'},{name:'Морковь',amount:1,unit:'шт'},{name:'Лук',amount:1,unit:'шт'}],
+        steps:['Отварить гречку','Обжарить лук и морковь','Добавить нарезанное филе, тушить 15 минут','Смешать с гречкой'] },
+    ],
+    dinner: [
+      { name:'Запечённая рыба с овощами', emoji:'🐟', kcal:390, protein:34, fat:16, carbs:22, time:30,
+        ingredients:[{name:'Филе трески',amount:200,unit:'г'},{name:'Брокколи',amount:150,unit:'г'},{name:'Оливковое масло',amount:10,unit:'мл'}],
+        steps:['Разогреть духовку до 200°C','Выложить рыбу и брокколи на противень, сбрызнуть маслом','Запекать 20-25 минут'] },
+    ],
+    snack: [
+      { name:'Яблоко и горсть миндаля', emoji:'🍎', kcal:180, protein:5, fat:11, carbs:18, time:1,
+        ingredients:[{name:'Яблоко',amount:1,unit:'шт'},{name:'Миндаль',amount:20,unit:'г'}],
+        steps:['Готово к употреблению'] },
+    ]
+  };
 
-/* ==================== USERS / AUTH STORAGE ==================== */
-function getUsers(){ return JSON.parse(localStorage.getItem('ration_users')||'{}'); }
-function saveUsers(u){ localStorage.setItem('ration_users', JSON.stringify(u)); }
-function stateKey(email){ return 'ration_state_' + email; }
+  /* ==================== HELPERS ==================== */
+  function $(id){ return document.getElementById(id); }
+  function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden')); $(id).classList.remove('hidden'); }
+  function todayStr(d=new Date()){ return d.toISOString().slice(0,10); }
+  function addDays(dateStr, n){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return todayStr(d); }
+  function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+  function hash(str){ return CryptoJS.SHA256(str).toString(); }
+  function uid(){ return Math.random().toString(36).slice(2,10); }
 
-let state = null;
-let currentUserEmail = null;
+  /* ==================== USERS / AUTH STORAGE ==================== */
+  function getUsers(){ return JSON.parse(localStorage.getItem('ration_users')||'{}'); }
+  function saveUsers(u){ localStorage.setItem('ration_users', JSON.stringify(u)); }
+  function stateKey(email){ return 'ration_state_' + email; }
 
-const DEFAULT_STATE = () => ({
-  profile:null, plan:{}, favorites:[], shoppingChecked:{}, theme:'light',
-  planStart:null, planDays:7, pantry:{}
-});
+  let state = null;
+  let currentUserEmail = null;
 
-function loadState(email){
-  const raw = localStorage.getItem(stateKey(email));
-  state = raw ? JSON.parse(raw) : DEFAULT_STATE();
-}
-function saveState(){
-  if(!currentUserEmail) return;
-  localStorage.setItem(stateKey(currentUserEmail), JSON.stringify(state));
-}
-
-/* ==================== AUTH ==================== */
-let authMode = 'login';
-function switchAuthTab(tab){
-  authMode = tab;
-  $('tab-login').classList.toggle('active', tab==='login');
-  $('tab-register').classList.toggle('active', tab==='register');
-  $('form-login').classList.toggle('hidden', tab!=='login');
-  $('form-register').classList.toggle('hidden', tab!=='register');
-  hideAuthError();
-}
-function showAuthError(msg){ const e=$('auth-error'); e.textContent=msg; e.classList.add('show'); }
-function hideAuthError(){ $('auth-error').classList.remove('show'); }
-
-function handleLogin(){
-  hideAuthError();
-  const email = $('login-email').value.trim().toLowerCase();
-  const pass = $('login-password').value;
-  if(!email || !pass){ showAuthError('Заполни почту и пароль'); return; }
-  const users = getUsers();
-  const u = users[email];
-  if(!u || u.passHash !== hash(pass)){ showAuthError('Неверная почта или пароль'); return; }
-  currentUserEmail = email;
-  loadState(email);
-  applyTheme();
-  routeAfterAuth();
-}
-
-function handleRegister(){
-  hideAuthError();
-  const name = $('reg-name').value.trim();
-  const email = $('reg-email').value.trim().toLowerCase();
-  const pass = $('reg-password').value;
-  if(!name || !email || !pass){ showAuthError('Заполни все поля'); return; }
-  if(pass.length < 6){ showAuthError('Пароль минимум 6 символов'); return; }
-  const users = getUsers();
-  if(users[email]){ showAuthError('Такая почта уже зарегистрирована'); return; }
-  users[email] = { name, passHash: hash(pass) };
-  saveUsers(users);
-  currentUserEmail = email;
-  state = DEFAULT_STATE();
-  saveState();
-  routeAfterAuth();
-}
-
-function logout(){
-  currentUserEmail = null;
-  state = null;
-  show('screen-auth');
-}
-
-function routeAfterAuth(){
-  if(!state.profile){
-    startOnboarding();
-  } else {
-    enterApp();
-  }
-}
-
-/* ==================== ONBOARDING ==================== */
-let ob = {
-  step:0,
-  data:{
-    name:'', gender:'female', age:28, height:165, weight:65, activity:1.375,
-    goal:'maintain', restrictions:[], equip:[], level:'medium',
-    budget:6000, period:7,
-    meals:{ breakfast:true, lunch:true, dinner:true, snack:true }
-  }
-};
-const OB_STEPS_TOTAL = 6;
-
-function startOnboarding(){
-  ob.step = 0;
-  ob.data.name = getUsers()[currentUserEmail] ? getUsers()[currentUserEmail].name : '';
-  show('screen-onboarding');
-  renderObProgress();
-  renderOb();
-}
-function renderObProgress(){
-  const wrap = $('ob-progress');
-  wrap.innerHTML = '';
-  for(let i=0;i<OB_STEPS_TOTAL;i++){
-    const seg = document.createElement('div');
-    seg.className = 'ob-progress-seg' + (i<=ob.step ? ' filled':'');
-    wrap.appendChild(seg);
-  }
-}
-function toggleChip(arr, id){
-  const i = arr.indexOf(id);
-  if(i>-1) arr.splice(i,1); else arr.push(id);
-}
-
-function renderOb(){
-  renderObProgress();
-  $('ob-back').style.visibility = ob.step===0 ? 'hidden' : 'visible';
-  $('ob-next').textContent = ob.step === OB_STEPS_TOTAL-1 ? 'Составить меню' : 'Далее';
-  const c = $('ob-content');
-  const d = ob.data;
-
-  if(ob.step === 0){
-    c.innerHTML = `
-      <div class="ob-step-title">Расскажи о себе</div>
-      <div class="ob-step-sub">Это нужно, чтобы точно рассчитать калораж</div>
-      <div class="field"><label>Имя</label><input id="ob-name" value="${d.name||''}" placeholder="Как тебя зовут?"></div>
-      <div class="chip-grid">
-        <button class="chip ${d.gender==='female'?'selected':''}" onclick="obSetGender('female')">Женский</button>
-        <button class="chip ${d.gender==='male'?'selected':''}" onclick="obSetGender('male')">Мужской</button>
-      </div>
-      <div class="slider-row"><label>Возраст: <span class="val" id="val-age">${d.age}</span> лет</label>
-        <input type="range" min="14" max="90" value="${d.age}" oninput="obSetVal('age',this.value)"></div>
-      <div class="slider-row"><label>Рост: <span class="val" id="val-height">${d.height}</span> см</label>
-        <input type="range" min="130" max="220" value="${d.height}" oninput="obSetVal('height',this.value)"></div>
-      <div class="slider-row"><label>Вес: <span class="val" id="val-weight">${d.weight}</span> кг</label>
-        <input type="range" min="35" max="180" value="${d.weight}" oninput="obSetVal('weight',this.value)"></div>
-    `;
-  }
-  else if(ob.step === 1){
-    const acts = [
-      {v:1.2,l:'Минимальная',desc:'Сидячий образ жизни'},
-      {v:1.375,l:'Лёгкая',desc:'Тренировки 1-3 раза в неделю'},
-      {v:1.55,l:'Средняя',desc:'Тренировки 3-5 раз в неделю'},
-      {v:1.725,l:'Высокая',desc:'Тренировки 6-7 раз в неделю'},
-    ];
-    c.innerHTML = `
-      <div class="ob-step-title">Уровень активности</div>
-      <div class="ob-step-sub">Как часто ты занимаешься спортом?</div>
-      ${acts.map(a=>`
-        <div class="option-card ${d.activity===a.v?'selected':''}" onclick="obSetVal('activity',${a.v})">
-          <div><div class="label">${a.l}</div><div class="desc">${a.desc}</div></div>
-        </div>`).join('')}
-    `;
-  }
-  else if(ob.step === 2){
-    const goals = [
-      {v:'lose', emoji:'📉', l:'Похудение', desc:'Дефицит калорий'},
-      {v:'maintain', emoji:'⚖️', l:'Поддержание веса', desc:'Баланс калорий'},
-      {v:'gain', emoji:'📈', l:'Набор массы', desc:'Профицит калорий'},
-    ];
-    c.innerHTML = `
-      <div class="ob-step-title">Какая у тебя цель?</div>
-      <div class="ob-step-sub">Подстроим калораж и меню под неё</div>
-      ${goals.map(g=>`
-        <div class="option-card ${d.goal===g.v?'selected':''}" onclick="obSetVal('goal','${g.v}')">
-          <div class="emoji">${g.emoji}</div>
-          <div><div class="label">${g.l}</div><div class="desc">${g.desc}</div></div>
-        </div>`).join('')}
-    `;
-  }
-  else if(ob.step === 3){
-    c.innerHTML = `
-      <div class="ob-step-title">Особенности питания</div>
-      <div class="ob-step-sub">Выбери всё, что применимо (можно пропустить)</div>
-      <div class="chip-grid">
-        ${RESTRICTION_OPTIONS.map(r=>`
-          <button class="chip ${d.restrictions.includes(r.id)?'selected':''}" onclick="obToggleRestriction('${r.id}')">${r.label}</button>
-        `).join('')}
-      </div>
-      <div class="section-title">Кухонная техника</div>
-      <div class="chip-grid">
-        ${EQUIP_OPTIONS.map(e=>`
-          <button class="chip ${d.equip.includes(e)?'selected':''}" onclick="obToggleEquip('${e}')">${e}</button>
-        `).join('')}
-      </div>
-      <div class="section-title">Уровень готовки</div>
-      <div class="chip-grid">
-        ${['easy','medium','hard'].map(lv=>`
-          <button class="chip ${d.level===lv?'selected':''}" onclick="obSetVal('level','${lv}')">${DIFF_LABELS[lv]}</button>
-        `).join('')}
-      </div>
-    `;
-  }
-  else if(ob.step === 4){
-    c.innerHTML = `
-      <div class="ob-step-title">Бюджет и приёмы пищи</div>
-      <div class="ob-step-sub">Сколько дней спланировать и какой бюджет</div>
-      <div class="slider-row"><label>Период плана: <span class="val" id="val-period">${d.period}</span> дней</label>
-        <input type="range" min="3" max="14" value="${d.period}" oninput="obSetVal('period',this.value)"></div>
-      <div class="slider-row"><label>Бюджет на весь период: <span class="val" id="val-budget">${d.budget}</span> ₽</label>
-        <input type="range" min="1500" max="30000" step="500" value="${d.budget}" oninput="obSetVal('budget',this.value)"></div>
-      <div class="section-title">Приёмы пищи</div>
-      <div class="chip-grid">
-        ${Object.keys(MEAL_LABELS).map(m=>`
-          <button class="chip ${d.meals[m]?'selected':''}" onclick="obToggleMeal('${m}')">${MEAL_LABELS[m]}</button>
-        `).join('')}
-      </div>
-    `;
-  }
-  else if(ob.step === 5){
-    const t = calcTargets(d);
-    c.innerHTML = `
-      <div class="ob-step-title">Проверь и подтверди</div>
-      <div class="ob-step-sub">Мы рассчитали твою суточную норму</div>
-      <div class="card">
-        <div class="macro-row">
-          <div class="macro-pill"><div class="num">${t.kcal}</div><div class="lab">ккал</div></div>
-          <div class="macro-pill"><div class="num">${t.protein}г</div><div class="lab">белки</div></div>
-          <div class="macro-pill"><div class="num">${t.fat}г</div><div class="lab">жиры</div></div>
-          <div class="macro-pill"><div class="num">${t.carbs}г</div><div class="lab">углеводы</div></div>
-        </div>
-      </div>
-      <div class="ob-step-sub">Нажми «Составить меню» — нейросеть подберёт рацион на ${d.period} дней под твой бюджет ${d.budget} ₽.</div>
-    `;
-  }
-}
-
-function obSetGender(g){ ob.data.gender = g; renderOb(); }
-function obSetVal(key, val){
-  ob.data[key] = (typeof ob.data[key]==='number' || ['age','height','weight','period','budget','activity'].includes(key))
-    ? parseFloat(val) : val;
-  renderOb();
-}
-function obToggleRestriction(id){ toggleChip(ob.data.restrictions, id); renderOb(); }
-function obToggleEquip(id){ toggleChip(ob.data.equip, id); renderOb(); }
-function obToggleMeal(m){ ob.data.meals[m] = !ob.data.meals[m]; renderOb(); }
-
-function obBack(){
-  if(ob.step===0) return;
-  ob.step--;
-  renderOb();
-  window.scrollTo(0,0);
-}
-function obNext(){
-  if(ob.step===0){
-    const nameInput = $('ob-name');
-    ob.data.name = (nameInput && nameInput.value.trim()) || ob.data.name || 'Друг';
-  }
-  if(ob.step < OB_STEPS_TOTAL-1){
-    ob.step++;
-    renderOb();
-    window.scrollTo(0,0);
-  } else {
-    finishOnboarding();
-  }
-}
-
-/* Mifflin-St Jeor */
-function calcTargets(d){
-  let bmr;
-  if(d.gender==='male'){
-    bmr = 10*d.weight + 6.25*d.height - 5*d.age + 5;
-  } else {
-    bmr = 10*d.weight + 6.25*d.height - 5*d.age - 161;
-  }
-  let tdee = bmr * d.activity;
-  if(d.goal==='lose') tdee *= 0.82;
-  if(d.goal==='gain') tdee *= 1.15;
-  const kcal = Math.round(tdee/10)*10;
-  const protein = Math.round(d.weight * (d.goal==='gain' ? 2.0 : 1.8));
-  const fat = Math.round(d.weight * 1.0);
-  const carbsKcal = kcal - (protein*4 + fat*9);
-  const carbs = Math.max(50, Math.round(carbsKcal/4));
-  return { kcal, protein, fat, carbs };
-}
-
-/* ==================== AI PLAN GENERATION ==================== */
-async function callYandexGPTPlan(profile, days){
-  const cfg = YANDEX_GPT_CONFIG;
-  const mealsOn = Object.keys(profile.meals).filter(k=>profile.meals[k]);
-  const dailyBudget = Math.round(profile.budget/days);
-  const restrictionsText = profile.restrictions.length
-    ? profile.restrictions.map(r=>(RESTRICTION_OPTIONS.find(o=>o.id===r)||{}).label||r).join(', ')
-    : 'нет особых ограничений';
-  const equipText = profile.equip.length ? profile.equip.join(', ') : 'только плита и духовка';
-  const diabeticNote = profile.restrictions.includes('diabetic')
-    ? ' У пользователя диабет — исключи простые сахара, используй продукты с низким гликемическим индексом.' : '';
-
-  const systemPrompt = 'Ты — нейродиетолог сервиса "Рацион". Отвечай ТОЛЬКО валидным JSON, без markdown-разметки, без пояснений, без ```.';
-  const userPrompt = `Составь персональное меню на ${days} дн. Бюджет: ${profile.budget} ₽ (~${dailyBudget} ₽/день). Цель: ${profile.goal}. Норма: ${profile.kcal} ккал, Б:${profile.protein} Ж:${profile.fat} У:${profile.carbs} г. Уровень готовки: ${DIFF_LABELS[profile.level]}. Техника: ${equipText}. Ограничения: ${restrictionsText}.${diabeticNote} Приёмы пищи: ${mealsOn.map(m=>MEAL_LABELS[m]).join(', ')}.
-Меню должно быть разнообразным, блюда не повторяются между днями.
-Ответь СТРОГО валидным JSON: массив из ${days} объектов. У каждого объекта — ключи ровно такие: ${mealsOn.join(', ')}.
-У каждого блюда поля: name (строка), emoji (один эмодзи), kcal (число), protein (число), fat (число), carbs (число), time (минуты, число), ingredients (массив объектов {name, amount (число), unit: "г" или "мл" или "шт"}), steps (массив строк с шагами приготовления).
-Ингредиенты — реальные продукты, доступные в российских магазинах. Никакого текста до или после JSON.`;
-
-  const requestBody = { system: systemPrompt, messages:[{ role:'user', content:userPrompt }] };
-
-  const res = await fetch(cfg.proxyUrl, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify(requestBody)
+  const DEFAULT_STATE = () => ({
+    profile:null, plan:{}, favorites:[], shoppingChecked:{}, theme:'light',
+    planStart:null, planDays:7, pantry:{}
   });
 
-  if(!res.ok){
-    const errText = await res.text().catch(()=> '');
-    throw new Error(`Ошибка HTTP ${res.status}: ${errText}`);
+  function loadState(email){
+    const raw = localStorage.getItem(stateKey(email));
+    state = raw ? JSON.parse(raw) : DEFAULT_STATE();
+  }
+  function saveState(){
+    if(!currentUserEmail) return;
+    localStorage.setItem(stateKey(currentUserEmail), JSON.stringify(state));
   }
 
-  const data = await res.json();
+  /* ==================== AUTH ==================== */
+  let authMode = 'login';
+  function switchAuthTab(tab){
+    authMode = tab;
+    $('tab-login').classList.toggle('active', tab==='login');
+    $('tab-register').classList.toggle('active', tab==='register');
+    $('form-login').classList.toggle('hidden', tab!=='login');
+    $('form-register').classList.toggle('hidden', tab!=='register');
+    hideAuthError();
+  }
+  function showAuthError(msg){ const e=$('auth-error'); e.textContent=msg; e.classList.add('show'); }
+  function hideAuthError(){ $('auth-error').classList.remove('show'); }
 
-  // Пытаемся вытащить текст из разных возможных форматов ответа прокси
-  let text = '';
-  if(data?.content?.[0]?.text) text = data.content[0].text;
-  else if(typeof data?.content === 'string') text = data.content;
-  else if(data?.result?.alternatives?.[0]?.message?.text) text = data.result.alternatives[0].message.text;
-  else if(data?.text) text = data.text;
-  else if(typeof data === 'string') text = data;
-
-  if(!text) throw new Error('Пустой ответ нейросети (неизвестный формат ответа прокси)');
-
-  // Убираем возможные markdown-обёртки ```json ... ```
-  let clean = text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-
-  // На случай если модель добавила текст до/после JSON — вытаскиваем сам массив
-  const firstBracket = clean.indexOf('[');
-  const lastBracket = clean.lastIndexOf(']');
-  if(firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket){
-    clean = clean.slice(firstBracket, lastBracket+1);
+  function handleLogin(){
+    hideAuthError();
+    const email = $('login-email').value.trim().toLowerCase();
+    const pass = $('login-password').value;
+    if(!email || !pass){ showAuthError('Заполни почту и пароль'); return; }
+    const users = getUsers();
+    const u = users[email];
+    if(!u || u.passHash !== hash(pass)){ showAuthError('Неверная почта или пароль'); return; }
+    currentUserEmail = email;
+    loadState(email);
+    applyTheme();
+    routeAfterAuth();
   }
 
-  let parsed;
-  try{
-    parsed = JSON.parse(clean);
-  } catch(e){
-    console.error('Не удалось распарсить JSON от нейросети:', clean);
-    throw new Error('Нейросеть вернула некорректный JSON');
+  function handleRegister(){
+    hideAuthError();
+    const name = $('reg-name').value.trim();
+    const email = $('reg-email').value.trim().toLowerCase();
+    const pass = $('reg-password').value;
+    if(!name || !email || !pass){ showAuthError('Заполни все поля'); return; }
+    if(pass.length < 6){ showAuthError('Пароль минимум 6 символов'); return; }
+    const users = getUsers();
+    if(users[email]){ showAuthError('Такая почта уже зарегистрирована'); return; }
+    users[email] = { name, passHash: hash(pass) };
+    saveUsers(users);
+    currentUserEmail = email;
+    state = DEFAULT_STATE();
+    saveState();
+    routeAfterAuth();
   }
-  if(!Array.isArray(parsed) || !parsed.length){
-    throw new Error('Нейросеть вернула пустой план');
-  }
-  return parsed;
-}
 
-function generateLocalDayPlan(mealsOn){
-  const day = {};
-  mealsOn.forEach(m=>{
-    const pool = LOCAL_RECIPES[m] || LOCAL_RECIPES.lunch;
-    const r = pool[Math.floor(Math.random()*pool.length)];
-    day[m] = JSON.parse(JSON.stringify(r));
-  });
-  return day;
-}
-
-function generateLocalPlan(profile, days){
-  const mealsOn = Object.keys(profile.meals).filter(k=>profile.meals[k]);
-  const plan = {};
-  for(let i=0;i<days;i++){
-    const dateStr = addDays(state.planStart, i);
-    plan[dateStr] = generateLocalDayPlan(mealsOn);
+  function logout(){
+    currentUserEmail = null;
+    state = null;
+    show('screen-auth');
   }
-  return plan;
-}
 
-function applyAiDays(daysArray, days){
-  const plan = {};
-  for(let i=0;i<days;i++){
-    const dateStr = addDays(state.planStart, i);
-    plan[dateStr] = daysArray[i] || null;
-  }
-  // если модель вернула меньше дней чем нужно — докидываем локальными для недостающих
-  for(const dateStr in plan){
-    if(!plan[dateStr]){
-      const mealsOn = Object.keys(state.profile.meals).filter(k=>state.profile.meals[k]);
-      plan[dateStr] = generateLocalDayPlan(mealsOn);
+  function routeAfterAuth(){
+    if(!state.profile){
+      startOnboarding();
+    } else {
+      enterApp();
     }
   }
-  return plan;
-}
 
-/**
- * Главная функция генерации.
- * Возвращает { ok:true, source:'ai'|'local' } ТОЛЬКО когда state.plan уже полностью записан.
- * Это ключевое исправление — раньше экран мог переключиться до того как план реально сохранился.
- */
-async function generatePlan(){
-  const profile = state.profile;
-  const days = state.planDays;
-  try{
-    const daysArray = await Promise.race([
-      callYandexGPTPlan(profile, days),
-      new Promise((_,reject)=>setTimeout(()=>reject(new Error('Таймаут ответа нейросети (45с)')), 45000))
-    ]);
-    state.plan = applyAiDays(daysArray, days);
-    saveState();
-    return { ok:true, source:'ai' };
-  } catch(e){
-    console.error('AI-генерация не удалась, использую локальный план:', e);
-    state.plan = generateLocalPlan(profile, days);
-    saveState();
-    return { ok:true, source:'local', error: e.message };
+  /* ==================== ONBOARDING ==================== */
+  let ob = {
+    step:0,
+    data:{
+      name:'', gender:'female', age:28, height:165, weight:65, activity:1.375,
+      goal:'maintain', restrictions:[], equip:[], level:'medium',
+      budget:6000, period:7,
+      meals:{ breakfast:true, lunch:true, dinner:true, snack:true }
+    }
+  };
+  const OB_STEPS_TOTAL = 6;
+
+  function startOnboarding(){
+    ob.step = 0;
+    ob.data.name = getUsers()[currentUserEmail] ? getUsers()[currentUserEmail].name : '';
+    show('screen-onboarding');
+    renderObProgress();
+    renderOb();
   }
-}
-
-/* ==================== LOADING SCREEN / FINISH ONBOARDING ==================== */
-async function finishOnboarding(){
-  const targets = calcTargets(ob.data);
-  const profile = Object.assign({}, ob.data, targets);
-
-  state = DEFAULT_STATE();
-  state.profile = profile;
-  state.planStart = todayStr();
-  state.planDays = ob.data.period;
-  saveState();
-
-  show('screen-loading');
-  const loaderText = $('loader-text');
-  const loaderSub = $('loader-sub');
-
-  const steps = [
-    '🧠 Нейросеть изучает твой профиль…',
-    '🍽️ Подбираем оптимальное меню…',
-    '🥕 Выбираем свежие ингредиенты…',
-    '📊 Формируем персональную диету…'
-  ];
-  let stepIndex = 0;
-  loaderText.textContent = steps[0];
-  loaderSub.textContent = 'Пожалуйста, подожди';
-  const stepInterval = setInterval(()=>{
-    stepIndex = (stepIndex+1) % steps.length;
-    loaderText.textContent = steps[stepIndex];
-  }, 3500);
-
-  // Ждём РЕАЛЬНОГО завершения генерации плана — никакого фиксированного таймера гонки.
-  const result = await generatePlan();
-
-  clearInterval(stepInterval);
-
-  if(result.source === 'ai'){
-    loaderText.textContent = '✅ Меню готово!';
-    loaderSub.textContent = 'Нейросеть подобрала рацион специально для тебя';
-  } else {
-    loaderText.textContent = '✅ Меню готово!';
-    loaderSub.textContent = 'Нейросеть была недоступна — подобрали локально';
+  function renderObProgress(){
+    const wrap = $('ob-progress');
+    wrap.innerHTML = '';
+    for(let i=0;i<OB_STEPS_TOTAL;i++){
+      const seg = document.createElement('div');
+      seg.className = 'ob-progress-seg' + (i<=ob.step ? ' filled':'');
+      wrap.appendChild(seg);
+    }
+  }
+  function toggleChip(arr, id){
+    const i = arr.indexOf(id);
+    if(i>-1) arr.splice(i,1); else arr.push(id);
   }
 
-  await new Promise(r=>setTimeout(r, 900));
-  enterApp();
-}
+  function renderOb(){
+    renderObProgress();
+    $('ob-back').style.visibility = ob.step===0 ? 'hidden' : 'visible';
+    $('ob-next').textContent = ob.step === OB_STEPS_TOTAL-1 ? 'Составить меню' : 'Далее';
+    const c = $('ob-content');
+    const d = ob.data;
 
-/* ==================== APP ENTRY / TABS ==================== */
-function enterApp(){
-  show('app');
-  $('app-greeting').textContent = `Привет, ${state.profile?.name || 'друг'}!`;
-  applyTheme();
-  switchTab('today');
-}
-
-let activeTab = 'today';
-function switchTab(tab){
-  activeTab = tab;
-  document.querySelectorAll('[id^="tab-"]').forEach(el=>el.classList.add('hidden'));
-  $('tab-'+tab).classList.remove('hidden');
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
-  if(tab==='today') renderToday();
-  if(tab==='plan') renderPlan();
-  if(tab==='shopping') renderShopping();
-  if(tab==='pantry') renderPantry();
-  if(tab==='profile') renderProfile();
-}
-
-function applyTheme(){
-  document.documentElement.setAttribute('data-theme', state.theme || 'light');
-}
-function toggleTheme(){
-  state.theme = state.theme === 'dark' ? 'light' : 'dark';
-  saveState();
-  applyTheme();
-}
-
-/* ---------- TODAY ---------- */
-function renderToday(){
-  const dateStr = todayStr();
-  const dayPlan = state.plan[dateStr];
-  const el = $('tab-today');
-  if(!dayPlan){
-    el.innerHTML = `<div class="empty-state">На сегодня меню ещё не готово 🤔</div>`;
-    return;
-  }
-  const t = state.profile;
-  let totalKcal=0, totalP=0, totalF=0, totalC=0;
-  const mealsHtml = Object.keys(dayPlan).map(mealKey=>{
-    const meal = dayPlan[mealKey];
-    if(!meal) return '';
-    totalKcal += meal.kcal||0; totalP += meal.protein||0; totalF += meal.fat||0; totalC += meal.carbs||0;
-    return `
-      <div class="meal-card" onclick='openMealModal(${JSON.stringify(meal).replace(/'/g,"&#39;")}, "${MEAL_LABELS[mealKey]||mealKey}")'>
-        <div class="meal-emoji">${meal.emoji||'🍽️'}</div>
-        <div style="flex:1">
-          <div class="meal-name">${meal.name}</div>
-          <div class="meal-meta">${MEAL_LABELS[mealKey]||mealKey} · ${meal.kcal||0} ккал · ${meal.time||'-'} мин</div>
+    if(ob.step === 0){
+      c.innerHTML = `
+        <div class="ob-step-title">Расскажи о себе</div>
+        <div class="ob-step-sub">Это нужно, чтобы точно рассчитать калораж</div>
+        <div class="field"><label>Имя</label><input id="ob-name" value="${d.name||''}" placeholder="Как тебя зовут?"></div>
+        <div class="chip-grid">
+          <button class="chip ${d.gender==='female'?'selected':''}" onclick="obSetGender('female')">Женский</button>
+          <button class="chip ${d.gender==='male'?'selected':''}" onclick="obSetGender('male')">Мужской</button>
         </div>
-      </div>`;
-  }).join('');
+        <div class="slider-row"><label>Возраст: <span class="val" id="val-age">${d.age}</span> лет</label>
+          <input type="range" min="14" max="90" value="${d.age}" oninput="obSetVal('age',this.value)"></div>
+        <div class="slider-row"><label>Рост: <span class="val" id="val-height">${d.height}</span> см</label>
+          <input type="range" min="130" max="220" value="${d.height}" oninput="obSetVal('height',this.value)"></div>
+        <div class="slider-row"><label>Вес: <span class="val" id="val-weight">${d.weight}</span> кг</label>
+          <input type="range" min="35" max="180" value="${d.weight}" oninput="obSetVal('weight',this.value)"></div>
+      `;
+    }
+    else if(ob.step === 1){
+      const acts = [
+        {v:1.2,l:'Минимальная',desc:'Сидячий образ жизни'},
+        {v:1.375,l:'Лёгкая',desc:'Тренировки 1-3 раза в неделю'},
+        {v:1.55,l:'Средняя',desc:'Тренировки 3-5 раз в неделю'},
+        {v:1.725,l:'Высокая',desc:'Тренировки 6-7 раз в неделю'},
+      ];
+      c.innerHTML = `
+        <div class="ob-step-title">Уровень активности</div>
+        <div class="ob-step-sub">Как часто ты занимаешься спортом?</div>
+        ${acts.map(a=>`
+          <div class="option-card ${d.activity===a.v?'selected':''}" onclick="obSetVal('activity',${a.v})">
+            <div><div class="label">${a.l}</div><div class="desc">${a.desc}</div></div>
+          </div>`).join('')}
+      `;
+    }
+    else if(ob.step === 2){
+      const goals = [
+        {v:'lose', emoji:'📉', l:'Похудение', desc:'Дефицит калорий'},
+        {v:'maintain', emoji:'⚖️', l:'Поддержание веса', desc:'Баланс калорий'},
+        {v:'gain', emoji:'📈', l:'Набор массы', desc:'Профицит калорий'},
+      ];
+      c.innerHTML = `
+        <div class="ob-step-title">Какая у тебя цель?</div>
+        <div class="ob-step-sub">Подстроим калораж и меню под неё</div>
+        ${goals.map(g=>`
+          <div class="option-card ${d.goal===g.v?'selected':''}" onclick="obSetVal('goal','${g.v}')">
+            <div class="emoji">${g.emoji}</div>
+            <div><div class="label">${g.l}</div><div class="desc">${g.desc}</div></div>
+          </div>`).join('')}
+      `;
+    }
+    else if(ob.step === 3){
+      c.innerHTML = `
+        <div class="ob-step-title">Особенности питания</div>
+        <div class="ob-step-sub">Выбери всё, что применимо (можно пропустить)</div>
+        <div class="chip-grid">
+          ${RESTRICTION_OPTIONS.map(r=>`
+            <button class="chip ${d.restrictions.includes(r.id)?'selected':''}" onclick="obToggleRestriction('${r.id}')">${r.label}</button>
+          `).join('')}
+        </div>
+        <div class="section-title">Кухонная техника</div>
+        <div class="chip-grid">
+          ${EQUIP_OPTIONS.map(e=>`
+            <button class="chip ${d.equip.includes(e)?'selected':''}" onclick="obToggleEquip('${e}')">${e}</button>
+          `).join('')}
+        </div>
+        <div class="section-title">Уровень готовки</div>
+        <div class="chip-grid">
+          ${['easy','medium','hard'].map(lv=>`
+            <button class="chip ${d.level===lv?'selected':''}" onclick="obSetVal('level','${lv}')">${DIFF_LABELS[lv]}</button>
+          `).join('')}
+        </div>
+      `;
+    }
+    else if(ob.step === 4){
+      c.innerHTML = `
+        <div class="ob-step-title">Бюджет и приёмы пищи</div>
+        <div class="ob-step-sub">Сколько дней спланировать и какой бюджет</div>
+        <div class="slider-row"><label>Период плана: <span class="val" id="val-period">${d.period}</span> дней</label>
+          <input type="range" min="3" max="14" value="${d.period}" oninput="obSetVal('period',this.value)"></div>
+        <div class="slider-row"><label>Бюджет на весь период: <span class="val" id="val-budget">${d.budget}</span> ₽</label>
+          <input type="range" min="1500" max="30000" step="500" value="${d.budget}" oninput="obSetVal('budget',this.value)"></div>
+        <div class="section-title">Приёмы пищи</div>
+        <div class="chip-grid">
+          ${Object.keys(MEAL_LABELS).map(m=>`
+            <button class="chip ${d.meals[m]?'selected':''}" onclick="obToggleMeal('${m}')">${MEAL_LABELS[m]}</button>
+          `).join('')}
+        </div>
+      `;
+    }
+    else if(ob.step === 5){
+      const t = calcTargets(d);
+      c.innerHTML = `
+        <div class="ob-step-title">Проверь и подтверди</div>
+        <div class="ob-step-sub">Мы рассчитали твою суточную норму</div>
+        <div class="card">
+          <div class="macro-row">
+            <div class="macro-pill"><div class="num">${t.kcal}</div><div class="lab">ккал</div></div>
+            <div class="macro-pill"><div class="num">${t.protein}г</div><div class="lab">белки</div></div>
+            <div class="macro-pill"><div class="num">${t.fat}г</div><div class="lab">жиры</div></div>
+            <div class="macro-pill"><div class="num">${t.carbs}г</div><div class="lab">углеводы</div></div>
+          </div>
+        </div>
+        <div class="ob-step-sub">Нажми «Составить меню» — нейросеть подберёт рацион на ${d.period} дней под твой бюджет ${d.budget} ₽.</div>
+      `;
+    }
+  }
 
-  el.innerHTML = `
-    <div class="card">
-      <div class="section-title" style="margin-top:0">Сегодня</div>
-      <div class="macro-row">
-        <div class="macro-pill"><div class="num">${totalKcal}/${t.kcal}</div><div class="lab">ккал</div></div>
-        <div class="macro-pill"><div class="num">${totalP}г</div><div class="lab">белки</div></div>
-        <div class="macro-pill"><div class="num">${totalF}г</div><div class="lab">жиры</div></div>
-        <div class="macro-pill"><div class="num">${totalC}г</div><div class="lab">углеводы</div></div>
+  function obSetGender(g){ ob.data.gender = g; renderOb(); }
+  function obSetVal(key, val){
+    ob.data[key] = (typeof ob.data[key]==='number' || ['age','height','weight','period','budget','activity'].includes(key))
+      ? parseFloat(val) : val;
+    renderOb();
+  }
+  function obToggleRestriction(id){ toggleChip(ob.data.restrictions, id); renderOb(); }
+  function obToggleEquip(id){ toggleChip(ob.data.equip, id); renderOb(); }
+  function obToggleMeal(m){ ob.data.meals[m] = !ob.data.meals[m]; renderOb(); }
+
+  function obBack(){
+    if(ob.step===0) return;
+    ob.step--;
+    renderOb();
+    window.scrollTo(0,0);
+  }
+  function obNext(){
+    if(ob.step===0){
+      const nameInput = $('ob-name');
+      ob.data.name = (nameInput && nameInput.value.trim()) || ob.data.name || 'Друг';
+    }
+    if(ob.step < OB_STEPS_TOTAL-1){
+      ob.step++;
+      renderOb();
+      window.scrollTo(0,0);
+    } else {
+      finishOnboarding();
+    }
+  }
+
+  /* Mifflin-St Jeor */
+  function calcTargets(d){
+    let bmr;
+    if(d.gender==='male'){
+      bmr = 10*d.weight + 6.25*d.height - 5*d.age + 5;
+    } else {
+      bmr = 10*d.weight + 6.25*d.height - 5*d.age - 161;
+    }
+    let tdee = bmr * d.activity;
+    if(d.goal==='lose') tdee *= 0.82;
+    if(d.goal==='gain') tdee *= 1.15;
+    const kcal = Math.round(tdee/10)*10;
+    const protein = Math.round(d.weight * (d.goal==='gain' ? 2.0 : 1.8));
+    const fat = Math.round(d.weight * 1.0);
+    const carbsKcal = kcal - (protein*4 + fat*9);
+    const carbs = Math.max(50, Math.round(carbsKcal/4));
+    return { kcal, protein, fat, carbs };
+  }
+
+  /* ==================== AI PLAN GENERATION ==================== */
+  async function callYandexGPTPlan(profile, days){
+    const cfg = YANDEX_GPT_CONFIG;
+    const mealsOn = Object.keys(profile.meals).filter(k=>profile.meals[k]);
+    const dailyBudget = Math.round(profile.budget/days);
+    const restrictionsText = profile.restrictions.length
+      ? profile.restrictions.map(r=>(RESTRICTION_OPTIONS.find(o=>o.id===r)||{}).label||r).join(', ')
+      : 'нет особых ограничений';
+    const equipText = profile.equip.length ? profile.equip.join(', ') : 'только плита и духовка';
+    const diabeticNote = profile.restrictions.includes('diabetic')
+      ? ' У пользователя диабет — исключи простые сахара, используй продукты с низким гликемическим индексом.' : '';
+
+    const systemPrompt = 'Ты — нейродиетолог сервиса "Рацион". Отвечай ТОЛЬКО валидным JSON, без markdown-разметки, без пояснений, без ```.';
+    const userPrompt = `Составь персональное меню на ${days} дн. Бюджет: ${profile.budget} ₽ (~${dailyBudget} ₽/день). Цель: ${profile.goal}. Норма: ${profile.kcal} ккал, Б:${profile.protein} Ж:${profile.fat} У:${profile.carbs} г. Уровень готовки: ${DIFF_LABELS[profile.level]}. Техника: ${equipText}. Ограничения: ${restrictionsText}.${diabeticNote} Приёмы пищи: ${mealsOn.map(m=>MEAL_LABELS[m]).join(', ')}.
+  Меню должно быть разнообразным, блюда не повторяются между днями.
+  Ответь СТРОГО валидным JSON: массив из ${days} объектов. У каждого объекта — ключи ровно такие: ${mealsOn.join(', ')}.
+  У каждого блюда поля: name (строка), emoji (один эмодзи), kcal (число), protein (число), fat (число), carbs (число), time (минуты, число), ingredients (массив объектов {name, amount (число), unit: "г" или "мл" или "шт"}), steps (массив строк с шагами приготовления).
+  Ингредиенты — реальные продукты, доступные в российских магазинах. Никакого текста до или после JSON.`;
+
+    const requestBody = { system: systemPrompt, messages:[{ role:'user', content:userPrompt }] };
+
+    const res = await fetch(cfg.proxyUrl, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(requestBody)
+    });
+
+    if(!res.ok){
+      const errText = await res.text().catch(()=> '');
+      throw new Error(`Ошибка HTTP ${res.status}: ${errText}`);
+    }
+
+    const data = await res.json();
+
+    // Пытаемся вытащить текст из разных возможных форматов ответа прокси
+    let text = '';
+    if(data?.content?.[0]?.text) text = data.content[0].text;
+    else if(typeof data?.content === 'string') text = data.content;
+    else if(data?.result?.alternatives?.[0]?.message?.text) text = data.result.alternatives[0].message.text;
+    else if(data?.text) text = data.text;
+    else if(typeof data === 'string') text = data;
+
+    if(!text) throw new Error('Пустой ответ нейросети (неизвестный формат ответа прокси)');
+
+    // Убираем возможные markdown-обёртки ```json ... ```
+    let clean = text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+
+    // На случай если модель добавила текст до/после JSON — вытаскиваем сам массив
+    const firstBracket = clean.indexOf('[');
+    const lastBracket = clean.lastIndexOf(']');
+    if(firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket){
+      clean = clean.slice(firstBracket, lastBracket+1);
+    }
+
+    let parsed;
+    try{
+      parsed = JSON.parse(clean);
+    } catch(e){
+      console.error('Не удалось распарсить JSON от нейросети:', clean);
+      throw new Error('Нейросеть вернула некорректный JSON');
+    }
+    if(!Array.isArray(parsed) || !parsed.length){
+      throw new Error('Нейросеть вернула пустой план');
+    }
+    return parsed;
+  }
+
+  function generateLocalDayPlan(mealsOn){
+    const day = {};
+    mealsOn.forEach(m=>{
+      const pool = LOCAL_RECIPES[m] || LOCAL_RECIPES.lunch;
+      const r = pool[Math.floor(Math.random()*pool.length)];
+      day[m] = JSON.parse(JSON.stringify(r));
+    });
+    return day;
+  }
+
+  function generateLocalPlan(profile, days){
+    const mealsOn = Object.keys(profile.meals).filter(k=>profile.meals[k]);
+    const plan = {};
+    for(let i=0;i<days;i++){
+      const dateStr = addDays(state.planStart, i);
+      plan[dateStr] = generateLocalDayPlan(mealsOn);
+    }
+    return plan;
+  }
+
+  function applyAiDays(daysArray, days){
+    const plan = {};
+    for(let i=0;i<days;i++){
+      const dateStr = addDays(state.planStart, i);
+      plan[dateStr] = daysArray[i] || null;
+    }
+    // если модель вернула меньше дней чем нужно — докидываем локальными для недостающих
+    for(const dateStr in plan){
+      if(!plan[dateStr]){
+        const mealsOn = Object.keys(state.profile.meals).filter(k=>state.profile.meals[k]);
+        plan[dateStr] = generateLocalDayPlan(mealsOn);
+      }
+    }
+    return plan;
+  }
+
+  /**
+   * Главная функция генерации.
+   * Возвращает { ok:true, source:'ai'|'local' } ТОЛЬКО когда state.plan уже полностью записан.
+   * Это ключевое исправление — раньше экран мог переключиться до того как план реально сохранился.
+   */
+  async function generatePlan(){
+    const profile = state.profile;
+    const days = state.planDays;
+    try{
+      const daysArray = await Promise.race([
+        callYandexGPTPlan(profile, days),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('Таймаут ответа нейросети (45с)')), 45000))
+      ]);
+      state.plan = applyAiDays(daysArray, days);
+      saveState();
+      return { ok:true, source:'ai' };
+    } catch(e){
+      console.error('AI-генерация не удалась, использую локальный план:', e);
+      state.plan = generateLocalPlan(profile, days);
+      saveState();
+      return { ok:true, source:'local', error: e.message };
+    }
+  }
+
+  /* ==================== LOADING SCREEN / FINISH ONBOARDING ==================== */
+  async function finishOnboarding(){
+    const targets = calcTargets(ob.data);
+    const profile = Object.assign({}, ob.data, targets);
+
+    state = DEFAULT_STATE();
+    state.profile = profile;
+    state.planStart = todayStr();
+    state.planDays = ob.data.period;
+    saveState();
+
+    show('screen-loading');
+    const loaderText = $('loader-text');
+    const loaderSub = $('loader-sub');
+
+    const steps = [
+      '🧠 Нейросеть изучает твой профиль…',
+      '🍽️ Подбираем оптимальное меню…',
+      '🥕 Выбираем свежие ингредиенты…',
+      '📊 Формируем персональную диету…'
+    ];
+    let stepIndex = 0;
+    loaderText.textContent = steps[0];
+    loaderSub.textContent = 'Пожалуйста, подожди';
+    const stepInterval = setInterval(()=>{
+      stepIndex = (stepIndex+1) % steps.length;
+      loaderText.textContent = steps[stepIndex];
+    }, 3500);
+
+    // Ждём РЕАЛЬНОГО завершения генерации плана — никакого фиксированного таймера гонки.
+    const result = await generatePlan();
+
+    clearInterval(stepInterval);
+
+    if(result.source === 'ai'){
+      loaderText.textContent = '✅ Меню готово!';
+      loaderSub.textContent = 'Нейросеть подобрала рацион специально для тебя';
+    } else {
+      loaderText.textContent = '✅ Меню готово!';
+      loaderSub.textContent = 'Нейросеть была недоступна — подобрали локально';
+    }
+
+    await new Promise(r=>setTimeout(r, 900));
+    enterApp();
+  }
+
+  /* ==================== APP ENTRY / TABS ==================== */
+  function enterApp(){
+    show('app');
+    $('app-greeting').textContent = `Привет, ${state.profile?.name || 'друг'}!`;
+    applyTheme();
+    switchTab('today');
+  }
+
+  let activeTab = 'today';
+  function switchTab(tab){
+    activeTab = tab;
+    document.querySelectorAll('[id^="tab-"]').forEach(el=>el.classList.add('hidden'));
+    $('tab-'+tab).classList.remove('hidden');
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+    if(tab==='today') renderToday();
+    if(tab==='plan') renderPlan();
+    if(tab==='shopping') renderShopping();
+    if(tab==='pantry') renderPantry();
+    if(tab==='profile') renderProfile();
+  }
+
+  function applyTheme(){
+    document.documentElement.setAttribute('data-theme', state.theme || 'light');
+  }
+  function toggleTheme(){
+    state.theme = state.theme === 'dark' ? 'light' : 'dark';
+    saveState();
+    applyTheme();
+  }
+
+  /* ---------- TODAY ---------- */
+  function renderToday(){
+    const dateStr = todayStr();
+    const dayPlan = state.plan[dateStr];
+    const el = $('tab-today');
+    if(!dayPlan){
+      el.innerHTML = `<div class="empty-state">На сегодня меню ещё не готово 🤔</div>`;
+      return;
+    }
+    const t = state.profile;
+    let totalKcal=0, totalP=0, totalF=0, totalC=0;
+    const mealsHtml = Object.keys(dayPlan).map(mealKey=>{
+      const meal = dayPlan[mealKey];
+      if(!meal) return '';
+      totalKcal += meal.kcal||0; totalP += meal.protein||0; totalF += meal.fat||0; totalC += meal.carbs||0;
+      return `
+        <div class="meal-card" onclick='openMealModal(${JSON.stringify(meal).replace(/'/g,"&#39;")}, "${MEAL_LABELS[mealKey]||mealKey}")'>
+          <div class="meal-emoji">${meal.emoji||'🍽️'}</div>
+          <div style="flex:1">
+            <div class="meal-name">${meal.name}</div>
+            <div class="meal-meta">${MEAL_LABELS[mealKey]||mealKey} · ${meal.kcal||0} ккал · ${meal.time||'-'} мин</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div class="card">
+        <div class="section-title" style="margin-top:0">Сегодня</div>
+        <div class="macro-row">
+          <div class="macro-pill"><div class="num">${totalKcal}/${t.kcal}</div><div class="lab">ккал</div></div>
+          <div class="macro-pill"><div class="num">${totalP}г</div><div class="lab">белки</div></div>
+          <div class="macro-pill"><div class="num">${totalF}г</div><div class="lab">жиры</div></div>
+          <div class="macro-pill"><div class="num">${totalC}г</div><div class="lab">углеводы</div></div>
+        </div>
       </div>
-    </div>
-    <div class="section-title">Приёмы пищи</div>
-    ${mealsHtml || '<div class="empty-state">Нет приёмов пищи</div>'}
-  `;
-}
-
-function openMealModal(meal, mealLabel){
-  const c = $('meal-modal-content');
-  c.innerHTML = `
-    <div style="display:flex;align-items:center;margin-bottom:14px;">
-      <div class="serif" style="font-size:20px;font-weight:600;">${mealLabel}</div>
-      <button class="modal-close" onclick="closeMealModal()">✕</button>
-    </div>
-    <div style="font-size:40px;text-align:center;margin-bottom:8px;">${meal.emoji||'🍽️'}</div>
-    <h2 style="text-align:center;margin:0 0 4px;">${meal.name}</h2>
-    <p style="text-align:center;color:var(--ink-soft);margin:0 0 18px;">${meal.time||'-'} мин</p>
-    <div class="macro-row">
-      <div class="macro-pill"><div class="num">${meal.kcal||0}</div><div class="lab">ккал</div></div>
-      <div class="macro-pill"><div class="num">${meal.protein||0}г</div><div class="lab">белки</div></div>
-      <div class="macro-pill"><div class="num">${meal.fat||0}г</div><div class="lab">жиры</div></div>
-      <div class="macro-pill"><div class="num">${meal.carbs||0}г</div><div class="lab">углеводы</div></div>
-    </div>
-    <div class="section-title">Ингредиенты</div>
-    ${(meal.ingredients||[]).map(i=>`<div class="ing-row"><span>${i.name}</span><span>${i.amount} ${i.unit||''}</span></div>`).join('')}
-    <div class="section-title">Шаги приготовления</div>
-    ${(meal.steps||[]).map((s,idx)=>`<div class="step-row"><div class="step-num">${idx+1}</div><div>${s}</div></div>`).join('')}
-  `;
-  $('meal-modal').classList.add('show');
-}
-function closeMealModal(){ $('meal-modal').classList.remove('show'); }
-function closeMealModalBg(e){ if(e.target.id==='meal-modal') closeMealModal(); }
-
-/* ---------- PLAN (week view) ---------- */
-function renderPlan(){
-  const el = $('tab-plan');
-  const days = [];
-  for(let i=0;i<state.planDays;i++){
-    days.push(addDays(state.planStart, i));
+      <div class="section-title">Приёмы пищи</div>
+      ${mealsHtml || '<div class="empty-state">Нет приёмов пищи</div>'}
+    `;
   }
-  const todayD = todayStr();
-  const gridHtml = days.map(d=>{
-    const dt = new Date(d+'T00:00:00');
-    const dnum = dt.getDate();
-    const wd = ['вс','пн','вт','ср','чт','пт','сб'][dt.getDay()];
-    return `<div class="day-pill ${d===todayD?'active':''}" onclick="showDayDetail('${d}')">
-      <div class="dnum">${dnum}</div><div>${wd}</div>
-    </div>`;
-  }).join('');
 
-  el.innerHTML = `
-    <div class="section-title" style="margin-top:0">План на ${state.planDays} дней</div>
-    <div class="week-grid">${gridHtml}</div>
-    <div id="day-detail"></div>
-  `;
-  showDayDetail(todayD in state.plan ? todayD : days[0]);
-}
-function showDayDetail(dateStr){
-  const dayPlan = state.plan[dateStr];
-  const el = $('day-detail');
-  if(!dayPlan){ el.innerHTML = '<div class="empty-state">Нет данных на этот день</div>'; return; }
-  el.innerHTML = Object.keys(dayPlan).map(mealKey=>{
-    const meal = dayPlan[mealKey];
-    if(!meal) return '';
-    return `
-      <div class="meal-card" onclick='openMealModal(${JSON.stringify(meal).replace(/'/g,"&#39;")}, "${MEAL_LABELS[mealKey]||mealKey}")'>
-        <div class="meal-emoji">${meal.emoji||'🍽️'}</div>
-        <div style="flex:1">
-          <div class="meal-name">${meal.name}</div>
-          <div class="meal-meta">${MEAL_LABELS[mealKey]||mealKey} · ${meal.kcal||0} ккал</div>
-        </div>
+  function openMealModal(meal, mealLabel){
+    const c = $('meal-modal-content');
+    c.innerHTML = `
+      <div style="display:flex;align-items:center;margin-bottom:14px;">
+        <div class="serif" style="font-size:20px;font-weight:600;">${mealLabel}</div>
+        <button class="modal-close" onclick="closeMealModal()">✕</button>
+      </div>
+      <div style="font-size:40px;text-align:center;margin-bottom:8px;">${meal.emoji||'🍽️'}</div>
+      <h2 style="text-align:center;margin:0 0 4px;">${meal.name}</h2>
+      <p style="text-align:center;color:var(--ink-soft);margin:0 0 18px;">${meal.time||'-'} мин</p>
+      <div class="macro-row">
+        <div class="macro-pill"><div class="num">${meal.kcal||0}</div><div class="lab">ккал</div></div>
+        <div class="macro-pill"><div class="num">${meal.protein||0}г</div><div class="lab">белки</div></div>
+        <div class="macro-pill"><div class="num">${meal.fat||0}г</div><div class="lab">жиры</div></div>
+        <div class="macro-pill"><div class="num">${meal.carbs||0}г</div><div class="lab">углеводы</div></div>
+      </div>
+      <div class="section-title">Ингредиенты</div>
+      ${(meal.ingredients||[]).map(i=>`<div class="ing-row"><span>${i.name}</span><span>${i.amount} ${i.unit||''}</span></div>`).join('')}
+      <div class="section-title">Шаги приготовления</div>
+      ${(meal.steps||[]).map((s,idx)=>`<div class="step-row"><div class="step-num">${idx+1}</div><div>${s}</div></div>`).join('')}
+    `;
+    $('meal-modal').classList.add('show');
+  }
+  function closeMealModal(){ $('meal-modal').classList.remove('show'); }
+  function closeMealModalBg(e){ if(e.target.id==='meal-modal') closeMealModal(); }
+
+  /* ---------- PLAN (week view) ---------- */
+  function renderPlan(){
+    const el = $('tab-plan');
+    const days = [];
+    for(let i=0;i<state.planDays;i++){
+      days.push(addDays(state.planStart, i));
+    }
+    const todayD = todayStr();
+    const gridHtml = days.map(d=>{
+      const dt = new Date(d+'T00:00:00');
+      const dnum = dt.getDate();
+      const wd = ['вс','пн','вт','ср','чт','пт','сб'][dt.getDay()];
+      return `<div class="day-pill ${d===todayD?'active':''}" onclick="showDayDetail('${d}')">
+        <div class="dnum">${dnum}</div><div>${wd}</div>
       </div>`;
-  }).join('');
-}
+    }).join('');
 
-/* ---------- SHOPPING LIST ---------- */
-function buildShoppingList(){
-  const agg = {};
-  Object.values(state.plan).forEach(dayPlan=>{
-    if(!dayPlan) return;
-    Object.values(dayPlan).forEach(meal=>{
-      if(!meal || !meal.ingredients) return;
-      meal.ingredients.forEach(ing=>{
-        const key = ing.name.toLowerCase()+'|'+(ing.unit||'');
-        if(!agg[key]) agg[key] = { name:ing.name, unit:ing.unit||'', amount:0 };
-        agg[key].amount += Number(ing.amount)||0;
+    el.innerHTML = `
+      <div class="section-title" style="margin-top:0">План на ${state.planDays} дней</div>
+      <div class="week-grid">${gridHtml}</div>
+      <div id="day-detail"></div>
+    `;
+    showDayDetail(todayD in state.plan ? todayD : days[0]);
+  }
+  function showDayDetail(dateStr){
+    const dayPlan = state.plan[dateStr];
+    const el = $('day-detail');
+    if(!dayPlan){ el.innerHTML = '<div class="empty-state">Нет данных на этот день</div>'; return; }
+    el.innerHTML = Object.keys(dayPlan).map(mealKey=>{
+      const meal = dayPlan[mealKey];
+      if(!meal) return '';
+      return `
+        <div class="meal-card" onclick='openMealModal(${JSON.stringify(meal).replace(/'/g,"&#39;")}, "${MEAL_LABELS[mealKey]||mealKey}")'>
+          <div class="meal-emoji">${meal.emoji||'🍽️'}</div>
+          <div style="flex:1">
+            <div class="meal-name">${meal.name}</div>
+            <div class="meal-meta">${MEAL_LABELS[mealKey]||mealKey} · ${meal.kcal||0} ккал</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  /* ---------- SHOPPING LIST ---------- */
+  function buildShoppingList(){
+    const agg = {};
+    Object.values(state.plan).forEach(dayPlan=>{
+      if(!dayPlan) return;
+      Object.values(dayPlan).forEach(meal=>{
+        if(!meal || !meal.ingredients) return;
+        meal.ingredients.forEach(ing=>{
+          const key = ing.name.toLowerCase()+'|'+(ing.unit||'');
+          if(!agg[key]) agg[key] = { name:ing.name, unit:ing.unit||'', amount:0 };
+          agg[key].amount += Number(ing.amount)||0;
+        });
       });
     });
-  });
-  return Object.values(agg).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
-}
-function renderShopping(){
-  const list = buildShoppingList();
-  const el = $('tab-shopping');
-  if(!list.length){
-    el.innerHTML = '<div class="empty-state">Список покупок появится после генерации плана</div>';
-    return;
+    return Object.values(agg).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
   }
-  el.innerHTML = `
-    <div class="section-title" style="margin-top:0">Список покупок</div>
-    <div class="card">
-      ${list.map((item,idx)=>{
-        const checked = !!state.shoppingChecked[item.name];
-        return `
-        <div class="shop-item">
-          <button class="shop-check ${checked?'checked':''}" onclick="toggleShopItem('${item.name.replace(/'/g,"\\'")}')">${checked?'✓':''}</button>
-          <div class="shop-name ${checked?'checked-text':''}">${item.name}</div>
-          <div class="shop-amount">${Math.round(item.amount)} ${item.unit}</div>
-        </div>`;
-      }).join('')}
-    </div>
-  `;
-}
-function toggleShopItem(name){
-  state.shoppingChecked[name] = !state.shoppingChecked[name];
-  saveState();
-  renderShopping();
-}
-
-/* ---------- PANTRY ---------- */
-function renderPantry(){
-  const el = $('tab-pantry');
-  const items = Object.entries(state.pantry||{});
-  el.innerHTML = `
-    <div class="section-title" style="margin-top:0">Кладовка</div>
-    <div class="add-form">
-      <input id="pantry-name" placeholder="Например: Рис">
-      <input id="pantry-amount" placeholder="500г" style="max-width:100px;">
-      <button onclick="addPantryItem()">+</button>
-    </div>
-    <div class="card">
-      ${items.length ? items.map(([name,amount])=>`
-        <div class="pantry-item">
-          <div style="flex:1;font-weight:600;">${name}</div>
-          <div style="color:var(--ink-soft);">${amount}</div>
-          <button class="icon-btn" onclick="removePantryItem('${name.replace(/'/g,"\\'")}')">🗑️</button>
-        </div>
-      `).join('') : '<div class="empty-state">Кладовка пуста</div>'}
-    </div>
-  `;
-}
-function addPantryItem(){
-  const name = $('pantry-name').value.trim();
-  const amount = $('pantry-amount').value.trim();
-  if(!name) return;
-  state.pantry[name] = amount || '—';
-  saveState();
-  renderPantry();
-}
-function removePantryItem(name){
-  delete state.pantry[name];
-  saveState();
-  renderPantry();
-}
-
-/* ---------- PROFILE ---------- */
-function renderProfile(){
-  const el = $('tab-profile');
-  const p = state.profile;
-  el.innerHTML = `
-    <div class="section-title" style="margin-top:0">Профиль</div>
-    <div class="card">
-      <div style="font-weight:700;font-size:17px;margin-bottom:4px;">${p.name}</div>
-      <div style="color:var(--ink-soft);font-size:13px;margin-bottom:16px;">${currentUserEmail}</div>
-      <div class="macro-row">
-        <div class="macro-pill"><div class="num">${p.kcal}</div><div class="lab">ккал/день</div></div>
-        <div class="macro-pill"><div class="num">${p.protein}г</div><div class="lab">белки</div></div>
-        <div class="macro-pill"><div class="num">${p.fat}г</div><div class="lab">жиры</div></div>
-        <div class="macro-pill"><div class="num">${p.carbs}г</div><div class="lab">углеводы</div></div>
+  function renderShopping(){
+    const list = buildShoppingList();
+    const el = $('tab-shopping');
+    if(!list.length){
+      el.innerHTML = '<div class="empty-state">Список покупок появится после генерации плана</div>';
+      return;
+    }
+    el.innerHTML = `
+      <div class="section-title" style="margin-top:0">Список покупок</div>
+      <div class="card">
+        ${list.map((item,idx)=>{
+          const checked = !!state.shoppingChecked[item.name];
+          return `
+          <div class="shop-item">
+            <button class="shop-check ${checked?'checked':''}" onclick="toggleShopItem('${item.name.replace(/'/g,"\\'")}')">${checked?'✓':''}</button>
+            <div class="shop-name ${checked?'checked-text':''}">${item.name}</div>
+            <div class="shop-amount">${Math.round(item.amount)} ${item.unit}</div>
+          </div>`;
+        }).join('')}
       </div>
-    </div>
-    <button class="btn-primary" style="background:var(--gold);margin-bottom:10px;" onclick="regeneratePlanFlow()">🔄 Сгенерировать план заново</button>
-    <button class="btn-ghost" style="width:100%;margin-bottom:10px;" onclick="restartOnboardingFlow()">✏️ Пройти анкету заново</button>
-    <button class="btn-ghost" style="width:100%;color:var(--danger);" onclick="logout()">Выйти из аккаунта</button>
-  `;
-}
+    `;
+  }
+  function toggleShopItem(name){
+    state.shoppingChecked[name] = !state.shoppingChecked[name];
+    saveState();
+    renderShopping();
+  }
 
-async function regeneratePlanFlow(){
-  toast('Генерируем новый план…');
-  state.planStart = todayStr();
-  const result = await generatePlan();
-  toast(result.source==='ai' ? 'Новый план от нейросети готов!' : 'Нейросеть недоступна — план подобран локально');
-  switchTab('today');
-}
-function restartOnboardingFlow(){
-  state.profile = null;
-  saveState();
-  startOnboarding();
-}
+  /* ---------- PANTRY ---------- */
+  function renderPantry(){
+    const el = $('tab-pantry');
+    const items = Object.entries(state.pantry||{});
+    el.innerHTML = `
+      <div class="section-title" style="margin-top:0">Кладовка</div>
+      <div class="add-form">
+        <input id="pantry-name" placeholder="Например: Рис">
+        <input id="pantry-amount" placeholder="500г" style="max-width:100px;">
+        <button onclick="addPantryItem()">+</button>
+      </div>
+      <div class="card">
+        ${items.length ? items.map(([name,amount])=>`
+          <div class="pantry-item">
+            <div style="flex:1;font-weight:600;">${name}</div>
+            <div style="color:var(--ink-soft);">${amount}</div>
+            <button class="icon-btn" onclick="removePantryItem('${name.replace(/'/g,"\\'")}')">🗑️</button>
+          </div>
+        `).join('') : '<div class="empty-state">Кладовка пуста</div>'}
+      </div>
+    `;
+  }
+  function addPantryItem(){
+    const name = $('pantry-name').value.trim();
+    const amount = $('pantry-amount').value.trim();
+    if(!name) return;
+    state.pantry[name] = amount || '—';
+    saveState();
+    renderPantry();
+  }
+  function removePantryItem(name){
+    delete state.pantry[name];
+    saveState();
+    renderPantry();
+  }
 
-/* ==================== INIT ==================== */
-window.addEventListener('DOMContentLoaded', ()=>{
-  show('screen-auth');
-});
+  /* ---------- PROFILE ---------- */
+  function renderProfile(){
+    const el = $('tab-profile');
+    const p = state.profile;
+    el.innerHTML = `
+      <div class="section-title" style="margin-top:0">Профиль</div>
+      <div class="card">
+        <div style="font-weight:700;font-size:17px;margin-bottom:4px;">${p.name}</div>
+        <div style="color:var(--ink-soft);font-size:13px;margin-bottom:16px;">${currentUserEmail}</div>
+        <div class="macro-row">
+          <div class="macro-pill"><div class="num">${p.kcal}</div><div class="lab">ккал/день</div></div>
+          <div class="macro-pill"><div class="num">${p.protein}г</div><div class="lab">белки</div></div>
+          <div class="macro-pill"><div class="num">${p.fat}г</div><div class="lab">жиры</div></div>
+          <div class="macro-pill"><div class="num">${p.carbs}г</div><div class="lab">углеводы</div></div>
+        </div>
+      </div>
+      <button class="btn-primary" style="background:var(--gold);margin-bottom:10px;" onclick="regeneratePlanFlow()">🔄 Сгенерировать план заново</button>
+      <button class="btn-ghost" style="width:100%;margin-bottom:10px;" onclick="restartOnboardingFlow()">✏️ Пройти анкету заново</button>
+      <button class="btn-ghost" style="width:100%;color:var(--danger);" onclick="logout()">Выйти из аккаунта</button>
+    `;
+  }
+
+  async function regeneratePlanFlow(){
+    toast('Генерируем новый план…');
+    state.planStart = todayStr();
+    const result = await generatePlan();
+    toast(result.source==='ai' ? 'Новый план от нейросети готов!' : 'Нейросеть недоступна — план подобран локально');
+    switchTab('today');
+  }
+  function restartOnboardingFlow(){
+    state.profile = null;
+    saveState();
+    startOnboarding();
+  }
+
+  /* ==================== INIT ==================== */
+  window.addEventListener('DOMContentLoaded', ()=>{
+    show('screen-auth');
+  });
 </script>
 </body>
 </html>
